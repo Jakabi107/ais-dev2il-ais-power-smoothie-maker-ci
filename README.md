@@ -5,6 +5,7 @@ This exercise will guide you through setting up a Continuous Integration pipelin
 automated testing is crucial and how GitHub Actions can ensure your smoothie shop runs smoothly by 
 catching bugs before they hit the blender.
 
+TODO - revisit this!
 Maximising your learning effect: You are going to use PyCharm in this exercise. PyCharm has excellent 
 code completion features that will help you a lot. If you type and use the code completion instead of 
 copy & pasting  everything, your brain will grasp it deeper and you thus have a better learning experience.
@@ -282,3 +283,243 @@ Commit your changes. You can now manually trigger the workflow from the **Action
 GitHub will also run the workflow every night at midnight UTC. If you want to see it in action right now, 
 change the schedule to `*/5 * * * *`, which runs the workflow every 5 minutes (the minimum interval allowed 
 by GitHub). After testing, remember to set it back to `0 0 * * *` to avoid excessive runs!
+
+---
+
+## 🛡️ Security Scans
+
+Running tests is good, but is your code **secure**?
+Modern applications rely on hundreds of external libraries. If one of them has a known vulnerability, 
+hackers can exploit it. Also, we often accidentally leave "secrets" (API keys, passwords) in our code.
+
+Let's automate the detection of these issues!
+
+### Dependency Scanning with `uv-secure`
+
+We use `uv-secure` to check if any of our dependencies have known security vulnerabilities (CVEs).
+
+You can find the documentation at [https://github.com/owenlamont/uv-secure](https://github.com/owenlamont/uv-secure). 
+
+⚠️ At the time of writing (January 2026), `uv-secure` is still in early development. It's a nice tool that makes it 
+very easy to scan for vulnerabilities. We are going to use it here for educational purposes. However, for production use cases, 
+consider using more established tools like pip-audit, snyk or Safety. 
+
+#### 🧪 Experiment Locally
+
+Let's reduce our tryout cycle lead time and start to experiment locally. Run
+```bash
+uvx uv-secure
+```
+Hopefully, everything's fine! ✅ 
+
+❓**What actually happened here?**
+`uv-secure` didn't look at your code, but at your *ingredients* (`uv.lock`). It compared the versions of your libraries against a global database of known security vulnerabilities.
+
+**But wait...** You probably saw some red output! 🚨 As times passes, new vulnerabilities are discovered. While this
+exercise might have been safe in January 2026, it doesn't mean it will stay that way forever.
+
+If you don't see any red output, let's introduce a vulnerability for demonstration purposes.
+Add the dependency `flask==0.5` to your `pyproject.toml`. This is an old version of Flask with 
+known security issues. Run `uv sync` to make sure that `uv.lock` is up to date and let's do the 
+security check again 💥 **Boom!**
+
+Let's commit this for now, so that we can see how this integrates with our CI pipeline.
+
+#### Add 🛡to CI Pipeline
+
+Add a new job to your `ci.yml` file to check for vulnerabilities:
+
+```yaml
+  scan:
+    name: Security Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+      
+      - name: Scan for vulnerable dependencies
+        run: | 
+          set -o pipefail
+          echo "### 🛡️ Security Audit Results" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          uvx uv-secure --config=pyproject.toml | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY 
+```
+
+Push this change to GitHub and watch your pipeline run. You'll see a new "Security Checks" job!
+
+❓What is `set -o pipefile` doing ? GitHub determines if a step fails based on the exit code of the last command 
+in the `run` block. If you pipe your output, then `tee` is the last command, and it usually exits with `0` (success).
+By setting `set -o pipefail`, we ensure that if `uv-secure` fails (exits with a non-zero code), the entire step is 
+marked as failed.
+
+💡Want to have more information on a CVE ? You can look it up on https://osv.dev. 
+
+#### Fix the Vulnerability
+
+In a real-world scenario, you should upgrade `flask` to a safe version.
+
+However, sometimes you can't upgrade immediately (e.g. due to compatibility issues). 
+In this case, you must **document** that you are aware of the risk and have accepted it.
+
+Open `pyproject.toml` and add this configuration to ignore one specific vulnerability:
+
+```toml
+[tool.uv-secure.vulnerability_criteria]
+# Ignores only this specific vulnerability ID (Flask issue)
+ignore_vulnerabilities = ["PYSEC-2019-179"]
+```
+
+You can also ignore entire packages: 
+
+```toml
+[tool.uv-secure.ignore_packages]
+# Ignores all vulnerabilities for Flask version 0.5
+Flask = ["==0.5"]
+```
+
+Run `uvx uv-secure` again. It should now pass! ✅
+
+> **Compliance Tip:** In regulated environments (like ISO 27001), you are required to document availability 
+> of fixes and reasons for not applying them. Ignoring it in the config file and adding the reasons there 
+> as comments effectively serves as this documentation.
+
+### 🚀 Level Up: Secret Scanning
+
+Committing secrets (passwords, tokens, keys) to git is a huge security risk. Once it's in the history, 
+anyone with access to the repo can see it, even if you delete the file later.
+
+We will use `gitleaks` (https://github.com/gitleaks/gitleaks) to scan our code for secrets.
+
+#### Add Secret Scanning to CI
+
+Update the `scan` job in `ci.yml` and add this step:
+
+```yaml
+      - name: Scan for secrets
+        uses: gitleaks/gitleaks-action@v2
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+TODO - cross check - do we really need the GITHUB_TOKEN here ? We've already fetched the full history 
+
+> **Why GITHUB_TOKEN ?**: `GITHUB_TOKEN` is a special token provided by GitHub Actions that allows the workflow to interact with the GitHub API.
+> `gitleaks-action` uses it to comment on your pull requests. See also https://github.com/gitleaks/gitleaks-action?tab=readme-ov-file#environment-variables
+
+Now let's leak a secret
+
+1. Add a "fake" secret to `main.py`. For example:
+   ```python
+   my_secret = "hyddYR1i2srLYdKa" 
+   ```
+2. Commit and push.
+3. 🛑 Watch the CI pipeline fail! Inspect the summary page and also your pull request. 
+
+#### How to fix it?
+
+Your secret has just leaked. To be 100% secure, you must assume that
+it has been compromised and you need to rotate it (change it).
+
+You, however, need to make sure that our pipeline passes again. Note that gitleaks won't just 
+look at your latest commit, but also at the history. It will inspect all commits in your branch, 
+so just removing the secret and committing again is not enough.
+
+#### **Scenario A**
+
+You've rotated the secret and it's okay that the secret stays in the history (not recommended, but sometimes necessary).
+
+Follow the instructions, that the gitleaks action added to your pull request.
+
+#### **Scenario B**
+
+You've rotated the secret and you want to completely remove it from the git history (recommended). You have two options
+
+##### Option Easy: Squash everything
+
+This approach combines all your commits (the bad one and the fix) into a single, clean commit. Easy, but you **lose** all your previous 
+commits on the branch.
+
+1. Remove the secret from your code in `main.py`.
+2. Commit the fix
+   ```bash
+   git add main.py
+   git commit -m "Remove secret"
+   ```
+   Now you have a history that looks like: "... -> Add Secret -> Remove Secret". The secret is still in the history!
+3. Reset to main (soft):
+   This command moves the branch pointer back to `main`, but keeps all your changes in the staging area.
+   ```bash
+   git reset --soft main
+   ```
+4. Commit again
+   Now create a fresh commit. Since the files in your working directory essentially contain "Code + Secret - Secret", the secret is gone!
+   ```bash
+   git commit -m "Add feature (clean)"
+   ```
+   Your branch now has a single commit, without the secret in the history.
+5. Force Push
+   Overwrite the history on the server
+   ```bash
+   git push --force
+   ```
+
+##### Option Hard: Rewrite History
+
+If you want to keep your individual commits but just extract the secret from that one specific commit, you would need to use `git rebase -i`.
+This is an advanced Git topic and out of scope for this exercise.
+
+### 🚀 Level Up: Pre-commit Hooks
+
+Fixing pipelines is slow. Waiting for the server to tell you "You failed" is annoying.
+What if we could check for secrets and issues **before** we even commit?
+
+Enter `pre-commit`. It's a framework that runs checks (hooks) before git allows you to make a commit.
+
+#### Avoid Leakage of Secrets as Best as Possible
+
+_"That ship has sailed."_ (or _"Das Kind ist in den Brunnen gefallen"_, as we say in German).
+You've seen what a mess it is, once a secret is committed. Wouldn't it be better to avoid this in the first place?
+
+A **pre-commit** is a mechanism (specifically a Git hook) that automatically runs checks on your code **before** a commit is finalized 
+in your history. Think of it as a local gatekeeper:
+- It runs locally: When you type `git commit`, the configured hooks run immediately on your machine.
+- It blocks bad code: If a check fails (e.g., a secret is detected or code style is wrong), the commit is aborted.
+
+Let's set this up to avoid that secrets don't even make it into git! 
+
+Create a file named `.pre-commit-config.yaml` in the root of your project:
+```yaml
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+```
+
+We need to install the hook. This is a one-time setup per clone of the repository and must be done
+manually (bye, bye 0-configuration 😢):
+```bash
+uvx pre-commit install
+```
+You should see: `pre-commit installed at .git/hooks/pre-commit`.
+
+#### 3. Try it out!
+Try adding the fake secret to `main.py` again and try to commit:
+```bash
+git add main.py
+git commit -m "Add secret"
+```
+
+💥 **BAM!** The commit is blocked! Gitleaks caught you locally. No need to wait for CI.
+Remove the secret and try committing again. It works!
