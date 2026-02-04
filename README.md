@@ -283,8 +283,6 @@ GitHub will also run the workflow every night at midnight UTC. If you want to se
 change the schedule to `*/5 * * * *`, which runs the workflow every 5 minutes (the minimum interval allowed 
 by GitHub). After testing, remember to set it back to `0 0 * * *` to avoid excessive runs!
 
----
-
 ## 🛡️ Security Scans
 
 Running tests is good, but is your code **secure**?
