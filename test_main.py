@@ -89,3 +89,4 @@ def test_make_smoothie_prints_a_joke(tmp_path, monkeypatch):
 
     # Then: output contains joke
     assert "The mock returns None" in output
+    assert False
