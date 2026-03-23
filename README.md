@@ -167,8 +167,10 @@ what happens. After you did this, it might also be the right time to check your 
 6. Check **Do not allow bypassing the above settings**.
 6. Click **Create**.
 
-Now, nobody (including you!) can push directly to `main` without first merging `main` into the branch, 
-passing tests and a review.
+Now, nobody (including you!) can push directly to `main` without first creating a new branch to work on, pulling all recent changes from `main` and solving resulting conflicts
+and furthermore commissioning a pull request. In this pull request our workflow will be executed and only if all tests pass and we get a thumbs up from a teammade we can merge to main.
+
+This ensures that our trunc is always safe and sound!
 
 ### 🚀 Level Up
 
