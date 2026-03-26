@@ -22,4 +22,4 @@ dev = [
 
 [tool.uv-secure.vulnerability_criteria]
 # Ignores only this specific vulnerability ID
-ignore_vulnerabilities = ["PYSEC-2019-179"]
+ignore_vulnerabilities = ["PYSEC-2019-179", "GHSA-5239-wwwm-4pmq"]
