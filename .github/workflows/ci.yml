@@ -46,7 +46,7 @@ jobs:
     - name: Check spelling
       id: spellcheck
       run: |
-        SPELLING_RESULTS = $(git ls-files | xargs uvx codespell9
+        SPELLING_RESULTS = $(git ls-files | xargs uvx codespell)
         echo "### Spelling check" >> $GITHUB_STEP_SUMMARY
         
         if [ $? == 0 ]; then
