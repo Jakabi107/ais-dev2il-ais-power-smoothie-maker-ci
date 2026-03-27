@@ -44,7 +44,11 @@ jobs:
 
    # Check spelling - only warning - not fail
     - name: Check spelling
-      run: git ls-files | xargs uvx codespell | tee -a $GITHUB_STEP_SUMMARY
+      run: |
+        echo '### Spelling correction' >> $GITHUB_STEP_SUMMARY
+        git ls-files | xargs uvx codespell | tee -a $GITHUB_STEP_SUMMARY
+        echo '<br>'
+
       continue-on-error: true
 
     # Run tests
