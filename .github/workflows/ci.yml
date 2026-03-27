@@ -44,7 +44,7 @@ jobs:
 
    # Check spelling - only warning - not fail
     - name: Check spelling
-      run: git ls-files | xargs uvx codespell
+      run: git ls-files | xargs uvx codespell | tee -a $GITHUB_STEP_SUMMARY
       continue-on-error: true
 
     # Run tests
