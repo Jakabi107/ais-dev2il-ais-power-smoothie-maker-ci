@@ -45,11 +45,18 @@ jobs:
    # Check spelling - only warning - not fail
     - name: Check spelling
       run: |
-        echo '### Spelling correction' >> $GITHUB_STEP_SUMMARY
-        git ls-files | xargs uvx codespell | tee -a $GITHUB_STEP_SUMMARY
-        echo '<br>'
-
+        git ls-files | xargs uvx codespell
       continue-on-error: true
+
+    - name: Handle Spelling Results
+      run: |
+        echo "### Spelling check" >> $GITHUB_STEP_SUMMARY
+        if [[ "${{ steps.spellcheck.outcome }}" == "failure" ]]; then
+          echo '[!WARNING]' >> $GITHUB_STEP_SUMMARY
+          git ls-files | xargs uvx codespell | xargs -L 1  echo '>'  >> $GITHUB_STEP_SUMMARY
+        else
+          echo "Sucess! <br>" >> $GITHUB_STEP_SUMMARY
+        fi
 
     # Run tests
     - name: Run tests
