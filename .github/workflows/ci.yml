@@ -44,6 +44,7 @@ jobs:
 
    # Check spelling - only warning - not fail
     - name: Check spelling
+      id: spellcheck
       run: |
         git ls-files | xargs uvx codespell
       continue-on-error: true
