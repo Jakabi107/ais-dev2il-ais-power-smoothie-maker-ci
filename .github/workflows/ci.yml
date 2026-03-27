@@ -48,7 +48,7 @@ jobs:
       run: |
         SPELLING_RESULTS=$(git ls-files | xargs uvx codespell)
         RESULT_CODE=$?
-        echo "### Spelling check" > $GITHUB_STEP_SUMMARY
+        echo "### Spelling check" >> $GITHUB_STEP_SUMMARY
         
         if [ $RESULT_CODE != 0 ]; then
           echo '> [!WARNING]' >> $GITHUB_STEP_SUMMARY
