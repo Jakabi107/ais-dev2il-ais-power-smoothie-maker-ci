@@ -47,15 +47,16 @@ jobs:
       id: spellcheck
       run: |
         SPELLING_RESULTS = git ls-files | xargs uvx codespell
-        echo $SPELLING_RESULTS
-        
         echo "### Spelling check" >> $GITHUB_STEP_SUMMARY
+        
         if [$? == 0]; then
           echo '> [!WARNING]' >> $GITHUB_STEP_SUMMARY
           $SPELLING_RESULTS | tr '\n' '\000' | xargs -0 echo '>' >> $GITHUB_STEP_SUMMARY
         else
            echo "No errors found! <br>" >> $GITHUB_STEP_SUMMARY
         fi
+        
+        echo $SPELLING_RESULTS
       continue-on-error: true
 
     # Run tests
