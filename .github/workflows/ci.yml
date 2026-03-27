@@ -42,6 +42,11 @@ jobs:
     - name: Check code
       run: uvx ruff check . --output-format=github
 
+   # Check spelling - only warning - not fail
+    - name: Check spelling
+      run: git ls-files | xargs uvx codespell
+      continue-on-error: true
+
     # Run tests
     - name: Run tests
       run: uv run pytest --junitxml=junit.xml
